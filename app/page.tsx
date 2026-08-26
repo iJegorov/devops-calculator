@@ -1,69 +1,244 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import styles from "./page.module.css";
+import {
+  calculate,
+  formatDisplay,
+  type Operator,
+} from "../lib/calculator";
+
+
 
 export default function Home() {
+  const [display, setDisplay] = useState("0");
+  const [previousValue, setPreviousValue] = useState<number | null>(null);
+  const [operator, setOperator] = useState<Operator | null>(null);
+  const [waitingForOperand, setWaitingForOperand] = useState(false);
+
+  const inputDigit = useCallback(
+    (digit: string) => {
+      if (display === "Error") {
+        setDisplay(digit);
+        setWaitingForOperand(false);
+        return;
+      }
+
+      if (waitingForOperand) {
+        setDisplay(digit);
+        setWaitingForOperand(false);
+        return;
+      }
+
+      setDisplay((prev) => (prev === "0" ? digit : prev + digit));
+    },
+    [display, waitingForOperand]
+  );
+
+  const inputDecimal = useCallback(() => {
+    if (display === "Error") {
+      setDisplay("0.");
+      setWaitingForOperand(false);
+      return;
+    }
+
+    if (waitingForOperand) {
+      setDisplay("0.");
+      setWaitingForOperand(false);
+      return;
+    }
+
+    if (!display.includes(".")) {
+      setDisplay((prev) => prev + ".");
+    }
+  }, [display, waitingForOperand]);
+
+  const clearAll = useCallback(() => {
+    setDisplay("0");
+    setPreviousValue(null);
+    setOperator(null);
+    setWaitingForOperand(false);
+  }, []);
+
+  const clearEntry = useCallback(() => {
+    setDisplay("0");
+    setWaitingForOperand(false);
+  }, []);
+
+  const backspace = useCallback(() => {
+    if (waitingForOperand || display === "Error") return;
+
+    setDisplay((prev) => {
+      if (prev.length <= 1 || (prev.length === 2 && prev.startsWith("-"))) {
+        return "0";
+      }
+      return prev.slice(0, -1);
+    });
+  }, [display, waitingForOperand]);
+
+  const toggleSign = useCallback(() => {
+    if (display === "Error" || display === "0") return;
+
+    setDisplay((prev) =>
+      prev.startsWith("-") ? prev.slice(1) : `-${prev}`
+    );
+  }, [display]);
+
+  const inputPercent = useCallback(() => {
+    if (display === "Error") return;
+
+    const value = Number(display);
+    setDisplay(formatDisplay(value / 100));
+    setWaitingForOperand(true);
+  }, [display]);
+
+  const performOperation = useCallback(
+    (nextOperator: Operator) => {
+      const current = Number(display);
+
+      if (display === "Error") {
+        clearAll();
+        return;
+      }
+
+      if (previousValue === null) {
+        setPreviousValue(current);
+      } else if (operator && !waitingForOperand) {
+        const result = calculate(previousValue, current, operator);
+
+        if (result === null) {
+          setDisplay("Error");
+          setPreviousValue(null);
+          setOperator(null);
+          setWaitingForOperand(true);
+          return;
+        }
+
+        const formatted = formatDisplay(result);
+        setDisplay(formatted);
+        setPreviousValue(Number(formatted));
+      }
+
+      setOperator(nextOperator);
+      setWaitingForOperand(true);
+    },
+    [display, previousValue, operator, waitingForOperand, clearAll]
+  );
+
+  const handleEquals = useCallback(() => {
+    if (previousValue === null || operator === null || waitingForOperand) {
+      return;
+    }
+
+    const current = Number(display);
+    const result = calculate(previousValue, current, operator);
+
+    if (result === null) {
+      setDisplay("Error");
+    } else {
+      setDisplay(formatDisplay(result));
+    }
+
+    setPreviousValue(null);
+    setOperator(null);
+    setWaitingForOperand(true);
+  }, [display, previousValue, operator, waitingForOperand]);
+
+  // Keyboard support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key >= "0" && e.key <= "9") {
+        e.preventDefault();
+        inputDigit(e.key);
+      } else if (e.key === ".") {
+        e.preventDefault();
+        inputDecimal();
+      } else if (e.key === "+" || e.key === "-") {
+        e.preventDefault();
+        performOperation(e.key as Operator);
+      } else if (e.key === "*" || e.key === "x" || e.key === "X") {
+        e.preventDefault();
+        performOperation("*");
+      } else if (e.key === "/") {
+        e.preventDefault();
+        performOperation("/");
+      } else if (e.key === "Enter" || e.key === "=") {
+        e.preventDefault();
+        handleEquals();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        clearAll();
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        backspace();
+      } else if (e.key === "%") {
+        e.preventDefault();
+        inputPercent();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [
+    inputDigit,
+    inputDecimal,
+    performOperation,
+    handleEquals,
+    clearAll,
+    backspace,
+    inputPercent,
+  ]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className={styles.container}>
+      <div className={styles.calculator}>
+        <h1>DevOps Calculator</h1>
+
+        <div className={styles.display} aria-live="polite">
+          {display}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className={styles.buttons}>
+          {/* Row 1 */}
+          <button onClick={clearAll} className={styles.clear}>
+            AC
+          </button>
+          <button onClick={clearEntry}>CE</button>
+          <button onClick={backspace}>⌫</button>
+          <button onClick={() => performOperation("/")}>÷</button>
+
+          {/* Row 2 */}
+          <button onClick={() => inputDigit("7")}>7</button>
+          <button onClick={() => inputDigit("8")}>8</button>
+          <button onClick={() => inputDigit("9")}>9</button>
+          <button onClick={() => performOperation("*")}>×</button>
+
+          {/* Row 3 */}
+          <button onClick={() => inputDigit("4")}>4</button>
+          <button onClick={() => inputDigit("5")}>5</button>
+          <button onClick={() => inputDigit("6")}>6</button>
+          <button onClick={() => performOperation("-")}>−</button>
+
+          {/* Row 4 */}
+          <button onClick={() => inputDigit("1")}>1</button>
+          <button onClick={() => inputDigit("2")}>2</button>
+          <button onClick={() => inputDigit("3")}>3</button>
+          <button onClick={() => performOperation("+")}>+</button>
+
+          {/* Row 5 */}
+          <button onClick={toggleSign}>±</button>
+          <button onClick={() => inputDigit("0")} className={styles.zero}>
+            0
+          </button>
+          <button onClick={inputDecimal}>.</button>
+          <button onClick={handleEquals} className={styles.equals}>
+            =
+          </button>
+
+          {/* Optional extra row if you want % */}
+          {/* <button onClick={inputPercent}>%</button> */}
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
   );
 }

@@ -192,7 +192,7 @@ export default function Home() {
   return (
     <main className={styles.container}>
       <div className={styles.calculator}>
-        <h1>DevOps Calculator</h1>
+        <h1>DevOps Calculator v1</h1>
 
         <div className={styles.display} aria-live="polite">
           {display}

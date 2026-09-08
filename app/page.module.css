@@ -154,4 +154,18 @@
     height: 56px;
     font-size: 1.15rem;
   }
+
+
+}
+
+.expression {
+  font-size: 0.95rem;
+  color: #888;
+  text-align: right;
+  min-height: 1.4em;
+  padding: 0 0.5rem 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
 }

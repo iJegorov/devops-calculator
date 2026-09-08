@@ -8,10 +8,9 @@ import {
   type Operator,
 } from "../lib/calculator";
 
-
-
 export default function Home() {
   const [display, setDisplay] = useState("0");
+  const [expression, setExpression] = useState(""); // ← new: shows the full pressed commands
   const [previousValue, setPreviousValue] = useState<number | null>(null);
   const [operator, setOperator] = useState<Operator | null>(null);
   const [waitingForOperand, setWaitingForOperand] = useState(false);
@@ -20,17 +19,30 @@ export default function Home() {
     (digit: string) => {
       if (display === "Error") {
         setDisplay(digit);
+        setExpression(digit);
         setWaitingForOperand(false);
         return;
       }
 
       if (waitingForOperand) {
         setDisplay(digit);
+        setExpression((prev) => prev + " " + digit);
         setWaitingForOperand(false);
         return;
       }
 
-      setDisplay((prev) => (prev === "0" ? digit : prev + digit));
+      setDisplay((prev) => {
+        const next = prev === "0" ? digit : prev + digit;
+        setExpression((expr) => {
+          // Replace the last number in the expression with the updated one
+          if (expr === "" || /[+\-*/]\s*$/.test(expr)) {
+            return expr + next;
+          }
+          // Update the trailing number
+          return expr.replace(/(\d+\.?\d*)$/, next);
+        });
+        return next;
+      });
     },
     [display, waitingForOperand]
   );
@@ -38,23 +50,27 @@ export default function Home() {
   const inputDecimal = useCallback(() => {
     if (display === "Error") {
       setDisplay("0.");
+      setExpression("0.");
       setWaitingForOperand(false);
       return;
     }
 
     if (waitingForOperand) {
       setDisplay("0.");
+      setExpression((prev) => prev + " 0.");
       setWaitingForOperand(false);
       return;
     }
 
     if (!display.includes(".")) {
       setDisplay((prev) => prev + ".");
+      setExpression((prev) => prev + ".");
     }
   }, [display, waitingForOperand]);
 
   const clearAll = useCallback(() => {
     setDisplay("0");
+    setExpression("");
     setPreviousValue(null);
     setOperator(null);
     setWaitingForOperand(false);
@@ -63,6 +79,8 @@ export default function Home() {
   const clearEntry = useCallback(() => {
     setDisplay("0");
     setWaitingForOperand(false);
+    // Remove the last number from the expression
+    setExpression((prev) => prev.replace(/(\s*[+\-*/]?\s*\d+\.?\d*)$/, "").trim());
   }, []);
 
   const backspace = useCallback(() => {
@@ -70,25 +88,32 @@ export default function Home() {
 
     setDisplay((prev) => {
       if (prev.length <= 1 || (prev.length === 2 && prev.startsWith("-"))) {
+        setExpression((expr) => expr.replace(/(\d+\.?\d*)$/, "").trim());
         return "0";
       }
-      return prev.slice(0, -1);
+      const next = prev.slice(0, -1);
+      setExpression((expr) => expr.replace(/(\d+\.?\d*)$/, next));
+      return next;
     });
   }, [display, waitingForOperand]);
 
   const toggleSign = useCallback(() => {
     if (display === "Error" || display === "0") return;
 
-    setDisplay((prev) =>
-      prev.startsWith("-") ? prev.slice(1) : `-${prev}`
-    );
+    setDisplay((prev) => {
+      const next = prev.startsWith("-") ? prev.slice(1) : `-${prev}`;
+      setExpression((expr) => expr.replace(/(-?\d+\.?\d*)$/, next));
+      return next;
+    });
   }, [display]);
 
   const inputPercent = useCallback(() => {
     if (display === "Error") return;
 
     const value = Number(display);
-    setDisplay(formatDisplay(value / 100));
+    const percent = formatDisplay(value / 100);
+    setDisplay(percent);
+    setExpression((prev) => prev.replace(/(-?\d+\.?\d*)$/, percent));
     setWaitingForOperand(true);
   }, [display]);
 
@@ -103,11 +128,13 @@ export default function Home() {
 
       if (previousValue === null) {
         setPreviousValue(current);
+        setExpression(formatDisplay(current) + " " + nextOperator);
       } else if (operator && !waitingForOperand) {
         const result = calculate(previousValue, current, operator);
 
         if (result === null) {
           setDisplay("Error");
+          setExpression("Error");
           setPreviousValue(null);
           setOperator(null);
           setWaitingForOperand(true);
@@ -117,6 +144,10 @@ export default function Home() {
         const formatted = formatDisplay(result);
         setDisplay(formatted);
         setPreviousValue(Number(formatted));
+        setExpression((prev) => prev + " " + nextOperator);
+      } else {
+        // Just change the operator
+        setExpression((prev) => prev.replace(/[+\-*/]\s*$/, nextOperator + " "));
       }
 
       setOperator(nextOperator);
@@ -135,8 +166,11 @@ export default function Home() {
 
     if (result === null) {
       setDisplay("Error");
+      setExpression("Error");
     } else {
-      setDisplay(formatDisplay(result));
+      const formatted = formatDisplay(result);
+      setDisplay(formatted);
+      setExpression((prev) => prev + " = " + formatted);
     }
 
     setPreviousValue(null);
@@ -192,8 +226,14 @@ export default function Home() {
   return (
     <main className={styles.container}>
       <div className={styles.calculator}>
-        <h1>DevOps Calculator v1</h1>
+        <h1>DevOps Calculator v1.2</h1>
 
+        {/* Expression line (shows the pressed commands) */}
+        <div className={styles.expression} aria-live="polite">
+          {expression || "\u00A0"}
+        </div>
+
+        {/* Main result / current number */}
         <div className={styles.display} aria-live="polite">
           {display}
         </div>
@@ -234,9 +274,6 @@ export default function Home() {
           <button onClick={handleEquals} className={styles.equals}>
             =
           </button>
-
-          {/* Optional extra row if you want % */}
-          {/* <button onClick={inputPercent}>%</button> */}
         </div>
       </div>
     </main>

@@ -87,3 +87,25 @@ jobs:
           resourceGroup: devops-calculator-rg
           containerAppName: devops-calculator-staging
           imageToDeploy: ghcr.io/ijegorov/devops-calculator:${{ github.sha }}
+
+  production:
+    name: Deploy to Production
+    needs: staging
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+
+    environment:
+      name: production
+
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Container Apps - Production
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resourceGroup: devops-calculator-rg
+          containerAppName: devops-calculator-production
+          imageToDeploy: ghcr.io/ijegorov/devops-calculator:${{ github.sha }}

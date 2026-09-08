@@ -226,7 +226,7 @@ export default function Home() {
   return (
     <main className={styles.container}>
       <div className={styles.calculator}>
-        <h1>DevOps Calculator v1.1</h1>
+        <h1>DevOps Calculator v1.2</h1>
 
         {/* Expression line (shows the pressed commands) */}
         <div className={styles.expression} aria-live="polite">

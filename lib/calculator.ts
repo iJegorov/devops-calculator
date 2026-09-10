@@ -32,7 +32,7 @@ export function calculate(
       return first * second;
 
     case "/":
-      return second === 0 ? null : first / second;
+      return second === 0 ? 0 : first / second;
 
     default:
       return second;
